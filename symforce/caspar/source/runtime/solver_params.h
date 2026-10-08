@@ -21,6 +21,8 @@ struct SolverParams {
   T pcg_rel_score_exit = -1.0f;    // disabled if == -1.0f
   T pcg_rel_decrease_min = -1.0f;  // disabled if == -1.0f
   T solver_rel_decrease_min = 1.0f;
+  // Records per-PCG-iteration data in IterationData when > 0 and verbose_logging is on.
+  int trace_pcg = 0;
 
   // Templated conversion constructor to enable automatic type conversion
   SolverParams() = default;
@@ -38,6 +40,7 @@ struct SolverParams {
         pcg_rel_error_exit(static_cast<T>(other.pcg_rel_error_exit)),
         pcg_rel_score_exit(static_cast<T>(other.pcg_rel_score_exit)),
         pcg_rel_decrease_min(static_cast<T>(other.pcg_rel_decrease_min)),
-        solver_rel_decrease_min(static_cast<T>(other.solver_rel_decrease_min)) {}
+        solver_rel_decrease_min(static_cast<T>(other.solver_rel_decrease_min)),
+        trace_pcg(other.trace_pcg) {}
 };
 }  // namespace caspar

@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <stdexcept>
+#include <utility>
 
 #include "caspar_mappings.h"
 #include "kernel_Matrix21_alpha_denominator_or_beta_numerator.h"
@@ -183,6 +185,12 @@ SolveResult GraphSolver::solve(bool print_progress, bool verbose_logging) {
     score_best_pcg = score_best;
     // The inner loop can break before storing a proposal in storage_new_best_.
     bool have_pcg_proposal = false;
+    const bool trace = verbose_logging && params_.trace_pcg > 0;
+    IterationData trace_data;
+    if (trace) {
+      trace_data.traced = true;
+      trace_data.pcg_exit = IterationData::ITER_MAX;
+    }
     for (pcg_iter_ = 0; pcg_iter_ < params_.pcg_iter_max; pcg_iter_++) {
       DoNormalize();
 
@@ -191,7 +199,13 @@ SolveResult GraphSolver::solve(bool print_progress, bool verbose_logging) {
         DoJtjpDirect();
         DoAlphaFirst();
         DoUpdateStepFirst();
+        if (trace) {
+          trace_data.stale_rkp1_at_entry = ReadCuMem(solver__r_kp1_norm2_tot_);
+        }
         DoUpdateRFirst();
+        if (trace) {
+          trace_data.r0_norm2 = pcg_r_0_norm2_;
+        }
       } else {
         DoBeta();
         DoUpdateP();
@@ -201,9 +215,18 @@ SolveResult GraphSolver::solve(bool print_progress, bool verbose_logging) {
         DoUpdateStep();
         DoUpdateR();
       }
+      if (trace) {
+        trace_data.pcg_r_norm2.push_back(pcg_r_kp1_norm2_);
+        trace_data.pcg_alpha.push_back(ReadCuMem(solver__alpha_));
+        trace_data.pcg_pAp.push_back(ReadCuMem(solver__alpha_denominator_));
+        trace_data.pcg_rho.push_back(
+            ReadCuMem(pcg_iter_ == 0 ? solver__alpha_numerator_ : solver__beta_numerator_));
+        trace_data.pcg_beta.push_back(pcg_iter_ == 0 ? std::nan("") : ReadCuMem(solver__beta_));
+      }
       if (params_.pcg_rel_decrease_min != -1.0f || params_.pcg_rel_score_exit != -1.0f) {
         double score_new_pcg = DoRetractScore();
         if (!(score_new_pcg <= score_best_pcg * params_.pcg_rel_decrease_min)) {
+          trace_data.pcg_exit = trace ? IterationData::REL_DECREASE : trace_data.pcg_exit;
           break;
         }
         std::swap(nodes__Matrix21__storage_check_, nodes__Matrix21__storage_new_best_);
@@ -211,10 +234,12 @@ SolveResult GraphSolver::solve(bool print_progress, bool verbose_logging) {
         have_pcg_proposal = true;
         if (params_.pcg_rel_score_exit != -1.0f &&
             score_best_pcg < score_best * params_.pcg_rel_score_exit) {
+          trace_data.pcg_exit = trace ? IterationData::REL_SCORE : trace_data.pcg_exit;
           break;
         }
       }
       if (pcg_r_kp1_norm2_ < pcg_r_0_norm2_ * params_.pcg_rel_error_exit) {
+        trace_data.pcg_exit = trace ? IterationData::REL_ERROR : trace_data.pcg_exit;
         break;
       }
     }
@@ -229,7 +254,12 @@ SolveResult GraphSolver::solve(bool print_progress, bool verbose_logging) {
     const double diag_current = diag;
     bool step_accepted = false;
     if (have_pcg_proposal && score_best_pcg < score_best * params_.solver_rel_decrease_min) {
-      quality = (score_best - score_best_pcg) / GetPredDecrease();
+      const double pred_decrease = GetPredDecrease();
+      quality = (score_best - score_best_pcg) / pred_decrease;
+      if (trace) {
+        trace_data.lm_accepted = true;
+        trace_data.pred_decrease = pred_decrease;
+      }
       const double quality_tmp = 2 * quality - 1;
       double scale =
           std::max(params_.diag_scaling_down, 1.0f - quality_tmp * quality_tmp * quality_tmp);
@@ -255,7 +285,10 @@ SolveResult GraphSolver::solve(bool print_progress, bool verbose_logging) {
     const double dt_tot = std::chrono::duration<double>(t_now - t0).count();
 
     if (verbose_logging) {
-      IterationData iter_data;
+      if (trace && !trace_data.lm_accepted) {
+        trace_data.pred_decrease = std::nan("");
+      }
+      IterationData iter_data = std::move(trace_data);
       iter_data.solver_iter = solver_iter_;
       iter_data.pcg_iter = pcg_iter_;
       iter_data.score_current = score_best_pcg;
@@ -265,7 +298,7 @@ SolveResult GraphSolver::solve(bool print_progress, bool verbose_logging) {
       iter_data.dt_inc = dt_inc;
       iter_data.dt_tot = dt_tot;
       iter_data.step_accepted = step_accepted;
-      result.iterations.push_back(iter_data);
+      result.iterations.push_back(std::move(iter_data));
     }
 
     if (print_progress) {
@@ -369,6 +402,7 @@ void GraphSolver::DoUpdateStep() {
 
 void GraphSolver::DoUpdateRFirst() {
   Zero(solver__r_0_norm2_tot_, solver__r_0_norm2_tot_ + 1);
+  Zero(solver__r_kp1_norm2_tot_, solver__r_kp1_norm2_tot_ + 1);
 
   Matrix21UpdateRFirst(nodes__Matrix21__r_k_, Matrix21_num_, nodes__Matrix21__w_, Matrix21_num_,
                        solver__neg_alpha_, nodes__Matrix21__r_k_, Matrix21_num_,
@@ -402,6 +436,8 @@ void GraphSolver::DoBeta() {
   Matrix21AlphaDenominatorOrBetaNumerator(nodes__Matrix21__r_k_, Matrix21_num_, nodes__Matrix21__z_,
                                           Matrix21_num_, solver__beta_numerator_, Matrix21_num_);
   BetaFromNumDenom(solver__beta_numerator_, solver__alpha_numerator_, solver__beta_);
+  // Keep rho_k as the denominator of the next beta (rho_(k+1) / rho_k).
+  Copy(solver__beta_numerator_, solver__beta_numerator_ + 1, solver__alpha_numerator_);
 }
 
 void GraphSolver::DoUpdateP() {

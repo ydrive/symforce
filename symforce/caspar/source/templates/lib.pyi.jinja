@@ -36,6 +36,17 @@ class IterationData:
     dt_inc: float
     dt_tot: float
     step_accepted: bool
+    traced: bool
+    lm_accepted: bool
+    pcg_exit: int
+    r0_norm2: float
+    stale_rkp1_at_entry: float
+    pred_decrease: float
+    pcg_r_norm2: T.List[float]
+    pcg_alpha: T.List[float]
+    pcg_beta: T.List[float]
+    pcg_rho: T.List[float]
+    pcg_pAp: T.List[float]
 
 class SolveResult:
     initial_score: float

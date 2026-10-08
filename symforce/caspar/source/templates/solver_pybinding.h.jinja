@@ -26,7 +26,18 @@ inline void add_solver_pybinding(pybind11::module_ module) {
       .def_readwrite("diag", &IterationData::diag)
       .def_readwrite("dt_inc", &IterationData::dt_inc)
       .def_readwrite("dt_tot", &IterationData::dt_tot)
-      .def_readwrite("step_accepted", &IterationData::step_accepted);
+      .def_readwrite("step_accepted", &IterationData::step_accepted)
+      .def_readwrite("traced", &IterationData::traced)
+      .def_readwrite("lm_accepted", &IterationData::lm_accepted)
+      .def_readwrite("pcg_exit", &IterationData::pcg_exit)
+      .def_readwrite("r0_norm2", &IterationData::r0_norm2)
+      .def_readwrite("stale_rkp1_at_entry", &IterationData::stale_rkp1_at_entry)
+      .def_readwrite("pred_decrease", &IterationData::pred_decrease)
+      .def_readwrite("pcg_r_norm2", &IterationData::pcg_r_norm2)
+      .def_readwrite("pcg_alpha", &IterationData::pcg_alpha)
+      .def_readwrite("pcg_beta", &IterationData::pcg_beta)
+      .def_readwrite("pcg_rho", &IterationData::pcg_rho)
+      .def_readwrite("pcg_pAp", &IterationData::pcg_pAp);
 
   py::class_<SolveResult>(module, "SolveResult")
       .def(py::init<>())

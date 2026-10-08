@@ -28,7 +28,8 @@ void add_solver_params_pybinding(py::module_ module) {
       .def_readwrite("score_exit_value", &SolverParamsT::score_exit_value)
       .def_readwrite("pcg_rel_decrease_min", &SolverParamsT::pcg_rel_decrease_min)
       .def_readwrite("pcg_rel_error_exit", &SolverParamsT::pcg_rel_error_exit)
-      .def_readwrite("pcg_rel_score_exit", &SolverParamsT::pcg_rel_score_exit);
+      .def_readwrite("pcg_rel_score_exit", &SolverParamsT::pcg_rel_score_exit)
+      .def_readwrite("trace_pcg", &SolverParamsT::trace_pcg);
 }
 
 }  // namespace caspar

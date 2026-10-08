@@ -22,6 +22,20 @@ struct IterationData {
   double dt_inc;
   double dt_tot;
   bool step_accepted;
+
+  // Filled only when SolverParams::trace_pcg > 0 and verbose_logging is on.
+  enum PcgExit { NOT_TRACED = -1, ITER_MAX = 0, REL_DECREASE = 1, REL_SCORE = 2, REL_ERROR = 3 };
+  bool traced = false;
+  bool lm_accepted = false;
+  int pcg_exit = NOT_TRACED;
+  double r0_norm2 = 0.0;
+  double stale_rkp1_at_entry = 0.0;
+  double pred_decrease = 0.0;
+  std::vector<double> pcg_r_norm2;
+  std::vector<double> pcg_alpha;
+  std::vector<double> pcg_beta;
+  std::vector<double> pcg_rho;
+  std::vector<double> pcg_pAp;
 };
 
 struct SolveResult {
