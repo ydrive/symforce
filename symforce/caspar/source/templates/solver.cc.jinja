@@ -640,6 +640,8 @@ void {{ solver.struct_name }}::DoBeta() {
     );
     {% endfor %}
     BetaFromNumDenom({{solver_key("beta_numerator")}}, {{solver_key("alpha_numerator")}}, {{solver_key("beta")}});
+    // Keep rho_k as the denominator of the next beta (rho_(k+1) / rho_k).
+    Copy({{solver_key("beta_numerator")}}, {{solver_key("beta_numerator")}}+1, {{solver_key("alpha_numerator")}});
 }
 
 void {{ solver.struct_name }}::DoUpdateP() {
