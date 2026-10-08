@@ -429,12 +429,13 @@ if __name__ == "__main__":
                     "jinja2~=3.0",
                     "mypy~=1.19.1",
                     "numba",
-                    # Base for https://github.com/sizmailov/pybind11-stubgen/pull/263
-                    "pybind11-stubgen>=2.5.5",
+                    # First version with the multi-module run() API
+                    "pybind11-stubgen>=3.0.0",
                     "ruff~=0.9.7",
                     "types-jinja2",
                     "types-requests",
                     "types-setuptools",
+                    "types-tqdm",
                     "sortedcontainers-stubs",
                     # Oldest version that solves to the right requirements
                     "uv>=0.2.0",

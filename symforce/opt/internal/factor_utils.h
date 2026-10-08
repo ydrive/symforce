@@ -12,9 +12,22 @@
  * Primarily intended to be included by factor.tcc and used internally there
  */
 
+#include <cstddef>
+#include <functional>
+#include <type_traits>
 #include <utility>
+#include <vector>
 
-#include "../factor.h"
+#include <Eigen/Core>
+#include <Eigen/SparseCore>
+
+#include <lcmtypes/sym/index_entry_t.hpp>
+
+#include <sym/util/typedefs.h>
+
+#include "../assert.h"
+#include "../templates.h"
+#include "../values.h"
 
 namespace sym {
 namespace internal {
@@ -142,7 +155,13 @@ void CalculateHessianRhs(const RVecType& residual, const JMatrixType& jacobian,
 
   // Compute RHS if needed
   if (rhs != nullptr) {
-    (*rhs) = jacobian.transpose() * residual;
+    constexpr int N = JMatrixType::ColsAtCompileTime;
+    if constexpr (N == Eigen::Dynamic) {
+      (*rhs) = jacobian.transpose() * residual;
+    } else {
+      rhs->resize(N);
+      Eigen::Map<Eigen::Matrix<Scalar, N, 1>>{rhs->data()} = jacobian.transpose() * residual;
+    }
   }
 }
 
@@ -210,7 +229,8 @@ auto JacobianFixed(Functor&& func) {
       Eigen::Matrix<Scalar, M, N> jacobian_fixed;
       JacobianFuncValuesExtractor<Scalar, FunctorType>::Invoke(func, values, keys_to_func,
                                                                &residual_fixed, &jacobian_fixed);
-      (*jacobian) = jacobian_fixed;
+      jacobian->resize(M, N);
+      Eigen::Map<Eigen::Matrix<Scalar, M, N>>{jacobian->data()} = jacobian_fixed;
       CalculateHessianRhs(residual_fixed, jacobian_fixed, hessian, rhs);
     } else {
       // jacobian not requested
@@ -223,7 +243,8 @@ auto JacobianFixed(Functor&& func) {
       SYM_ASSERT(rhs == nullptr);
     }
 
-    (*residual) = residual_fixed;
+    residual->resize(M);
+    Eigen::Map<Eigen::Matrix<Scalar, M, 1>>{residual->data()} = residual_fixed;
   };
 }
 
@@ -436,19 +457,23 @@ auto HessianFixedDense(Functor&& func) {
         hessian == nullptr ? nullptr : &hessian_fixed, rhs == nullptr ? nullptr : &rhs_fixed);
 
     if (residual != nullptr) {
-      (*residual) = residual_fixed;
+      residual->resize(M);
+      Eigen::Map<Eigen::Matrix<Scalar, M, 1>>{residual->data()} = residual_fixed;
     }
 
     if (jacobian != nullptr) {
-      (*jacobian) = jacobian_fixed;
+      jacobian->resize(M, N);
+      Eigen::Map<Eigen::Matrix<Scalar, M, N>>{jacobian->data()} = jacobian_fixed;
     }
 
     if (hessian != nullptr) {
-      (*hessian) = hessian_fixed;
+      hessian->resize(N, N);
+      Eigen::Map<Eigen::Matrix<Scalar, N, N>>{hessian->data()} = hessian_fixed;
     }
 
     if (rhs != nullptr) {
-      (*rhs) = rhs_fixed;
+      rhs->resize(N);
+      Eigen::Map<Eigen::Matrix<Scalar, N, 1>>{rhs->data()} = rhs_fixed;
     }
   };
 }
