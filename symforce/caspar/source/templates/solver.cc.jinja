@@ -550,6 +550,7 @@ void {{ solver.struct_name }}::DoUpdateStep() {
 
 void {{ solver.struct_name }}::DoUpdateRFirst() {
     Zero({{solver_key("r_0_norm2_tot")}}, {{solver_key("r_0_norm2_tot")}}+1);
+    Zero({{solver_key("r_kp1_norm2_tot")}}, {{solver_key("r_kp1_norm2_tot")}}+1);
 
     {% for nodetype in solver.node_types %}
     {{nodetype.__name__}}UpdateRFirst(
