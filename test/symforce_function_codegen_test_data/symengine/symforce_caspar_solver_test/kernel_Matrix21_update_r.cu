@@ -21,6 +21,9 @@ __global__ void __launch_bounds__(1024, 1)
   __shared__ uint8_t inout_shared[8192];
 
   __shared__ double out_Matrix21_r_kp1_norm2_tot_local[1];
+  for (int i = threadIdx.x; i < 1; i += blockDim.x) {
+    out_Matrix21_r_kp1_norm2_tot_local[i] = 0;
+  }
 
   double r0 = 0, r1 = 0, r2 = 0, r3 = 0, r4 = 0;
 

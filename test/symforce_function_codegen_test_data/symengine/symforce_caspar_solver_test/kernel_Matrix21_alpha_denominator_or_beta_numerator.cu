@@ -18,6 +18,9 @@ __global__ void __launch_bounds__(1024, 1) Matrix21AlphaDenominatorOrBetaNumerat
   __shared__ uint8_t inout_shared[256];
 
   __shared__ double Matrix21_out_local[1];
+  for (int i = threadIdx.x; i < 1; i += blockDim.x) {
+    Matrix21_out_local[i] = 0;
+  }
 
   double r0 = 0, r1 = 0, r2 = 0, r3 = 0;
 

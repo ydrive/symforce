@@ -33,6 +33,9 @@ __global__ void __launch_bounds__(1024, 1) CasparPaddingLaneScoreKernel(
                                         : SharedIndex{0xffffffff, 0xffff, 0xffff});
 
   __shared__ float out_rTr_local[1];
+  for (int i = threadIdx.x; i < 1; i += blockDim.x) {
+    out_rTr_local[i] = 0;
+  }
 
   float r0 = 0, r1 = 0, r2 = 0, r3 = 0, r4 = 0, r5 = 0, r6 = 0, r7 = 0, r8 = 0, r9 = 0, r10 = 0,
         r11 = 0, r12 = 0, r13 = 0, r14 = 0, r15 = 0, r16 = 0, r17 = 0, r18 = 0, r19 = 0, r20 = 0,

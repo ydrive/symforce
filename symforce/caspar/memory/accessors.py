@@ -548,8 +548,15 @@ class AddSum(_UsingSharedMem, _AddAccessor):
         return [[i] for i in range(StorageOps.storage_dim(storage))]
 
     def pre_calc_code(self) -> str:
-        if StorageOps.storage_dim(self.storage) > 0:
-            return f"__shared__ {self.storage_t} {self.name}_local[{StorageOps.storage_dim(self.storage)}];"
+        dim = StorageOps.storage_dim(self.storage)
+        if dim > 0:
+            # SumStore only writes the entries that are not structurally zero, but
+            # SumFlushFinal adds all of them. SumStore starts with __syncthreads, which orders
+            # the zeroing before the first store.
+            return (
+                f"__shared__ {self.storage_t} {self.name}_local[{dim}];\n"
+                f"for (int i = threadIdx.x; i < {dim}; i += blockDim.x) {{ {self.name}_local[i] = 0; }}"
+            )
         return ""
 
     def post_calc_code(self) -> str:
