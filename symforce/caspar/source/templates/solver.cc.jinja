@@ -225,6 +225,7 @@ SolveResult {{ solver.struct_name }}::solve(bool print_progress, bool verbose_lo
     const {{solver.linear_t}} diag_current = diag;
     bool step_accepted = false;
     if (score_best_pcg < score_best * params_.solver_rel_decrease_min) {
+      step_accepted = true;
       const {{solver.linear_t}} pred_decrease = GetPredDecrease();
       quality = (score_best - score_best_pcg) / pred_decrease;
       if (trace) {
