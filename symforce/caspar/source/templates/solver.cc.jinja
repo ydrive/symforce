@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include <algorithm>
 #include <chrono>
+#include <cmath>
+#include <utility>
 
 #include "caspar_mappings.h"
 #include "shared_indices.h"
@@ -151,6 +153,12 @@ SolveResult {{ solver.struct_name }}::solve(bool print_progress, bool verbose_lo
       DoResJac();
     }
     score_best_pcg = score_best;
+    const bool trace = verbose_logging && params_.trace_pcg > 0;
+    IterationData trace_data;
+    if (trace) {
+      trace_data.traced = true;
+      trace_data.pcg_exit = IterationData::ITER_MAX;
+    }
     for (pcg_iter_ = 0; pcg_iter_ < params_.pcg_iter_max; pcg_iter_++){
       DoNormalize();
 
@@ -159,7 +167,13 @@ SolveResult {{ solver.struct_name }}::solve(bool print_progress, bool verbose_lo
         DoJtjpDirect();
         DoAlphaFirst();
         DoUpdateStepFirst();
+        if (trace) {
+          trace_data.stale_rkp1_at_entry = ReadCuMem({{solver_key("r_kp1_norm2_tot")}});
+        }
         DoUpdateRFirst();
+        if (trace) {
+          trace_data.r0_norm2 = pcg_r_0_norm2_;
+        }
       } else {
         DoBeta();
         DoUpdateP();
@@ -169,9 +183,17 @@ SolveResult {{ solver.struct_name }}::solve(bool print_progress, bool verbose_lo
         DoUpdateStep();
         DoUpdateR();
       }
+      if (trace) {
+        trace_data.pcg_r_norm2.push_back(pcg_r_kp1_norm2_);
+        trace_data.pcg_alpha.push_back(ReadCuMem({{solver_key("alpha")}}));
+        trace_data.pcg_pAp.push_back(ReadCuMem({{solver_key("alpha_denominator")}}));
+        trace_data.pcg_rho.push_back(ReadCuMem(pcg_iter_ == 0 ? {{solver_key("alpha_numerator")}} : {{solver_key("beta_numerator")}}));
+        trace_data.pcg_beta.push_back(pcg_iter_ == 0 ? std::nan("") : ReadCuMem({{solver_key("beta")}}));
+      }
       if (params_.pcg_rel_decrease_min != -1.0f || params_.pcg_rel_score_exit != -1.0f) {
         {{solver.linear_t}} score_new_pcg = DoRetractScore();
         if (!(score_new_pcg <= score_best_pcg * params_.pcg_rel_decrease_min)) {
+          trace_data.pcg_exit = trace ? IterationData::REL_DECREASE : trace_data.pcg_exit;
           break;
         }
         {% for node_type in solver.node_types %}
@@ -181,10 +203,12 @@ SolveResult {{ solver.struct_name }}::solve(bool print_progress, bool verbose_lo
         score_best_pcg = score_new_pcg;
         if (params_.pcg_rel_score_exit != -1.0f
             &&score_best_pcg < score_best * params_.pcg_rel_score_exit){
+          trace_data.pcg_exit = trace ? IterationData::REL_SCORE : trace_data.pcg_exit;
           break;
         }
       }
       if (pcg_r_kp1_norm2_ < pcg_r_0_norm2_ * params_.pcg_rel_error_exit){
+        trace_data.pcg_exit = trace ? IterationData::REL_ERROR : trace_data.pcg_exit;
         break;
       }
     }
@@ -201,7 +225,12 @@ SolveResult {{ solver.struct_name }}::solve(bool print_progress, bool verbose_lo
     const {{solver.linear_t}} diag_current = diag;
     bool step_accepted = false;
     if (score_best_pcg < score_best * params_.solver_rel_decrease_min) {
-      quality = (score_best - score_best_pcg) / GetPredDecrease();
+      const {{solver.linear_t}} pred_decrease = GetPredDecrease();
+      quality = (score_best - score_best_pcg) / pred_decrease;
+      if (trace) {
+        trace_data.lm_accepted = true;
+        trace_data.pred_decrease = pred_decrease;
+      }
       const {{solver.linear_t}} quality_tmp = 2 * quality - 1;
       {{solver.linear_t}} scale =
           std::max(params_.diag_scaling_down, 1.0f - quality_tmp * quality_tmp * quality_tmp);
@@ -229,7 +258,10 @@ SolveResult {{ solver.struct_name }}::solve(bool print_progress, bool verbose_lo
     const double dt_tot = std::chrono::duration<double>(t_now - t0).count();
 
     if (verbose_logging) {
-      IterationData iter_data;
+      if (trace && !trace_data.lm_accepted) {
+        trace_data.pred_decrease = std::nan("");
+      }
+      IterationData iter_data = std::move(trace_data);
       iter_data.solver_iter = solver_iter_;
       iter_data.pcg_iter = pcg_iter_;
       iter_data.score_current = score_best_pcg;
@@ -239,7 +271,7 @@ SolveResult {{ solver.struct_name }}::solve(bool print_progress, bool verbose_lo
       iter_data.dt_inc = dt_inc;
       iter_data.dt_tot = dt_tot;
       iter_data.step_accepted = step_accepted;
-      result.iterations.push_back(iter_data);
+      result.iterations.push_back(std::move(iter_data));
     }
 
     if (print_progress) {
