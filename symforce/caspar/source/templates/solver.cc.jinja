@@ -149,7 +149,7 @@ SolveResult {{ solver.struct_name }}::solve(bool print_progress, bool verbose_lo
   }
 
   for (solver_iter_ = 0; solver_iter_ < params_.solver_iter_max; solver_iter_++) {
-    if (solver_iter_ != 0 && solver_iter_ < params_.solver_iter_max - 1){
+    if (solver_iter_ != 0) {
       DoResJac();
     }
     score_best_pcg = score_best;
