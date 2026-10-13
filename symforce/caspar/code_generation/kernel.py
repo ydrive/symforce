@@ -47,19 +47,19 @@ class Kernel:
         self.kernel_t = dtype
         self.block_size = block_size
 
-    def generate(self, out_dir: Path) -> None:
+    def generate(self, out_dir: Path, namespace: str = "caspar") -> None:
         dabseg = make_dabseg(self.inputs, self.outputs)
         self.code_lines, n_registers = get_lines(dabseg, dtype=self.kernel_t)
         self.registers = [f"r{i}" for i in range(n_registers)]
 
         code = env.get_template("kernel.cu.jinja").render(
-            kernel=self, parts_to_pascal=parts_to_pascal
+            kernel=self, namespace=namespace, parts_to_pascal=parts_to_pascal
         )
         code = EMPTY_BLOCK_PATTERN.sub("", code)
         write_if_different(code, out_dir.joinpath(f"kernel_{self.name}.cu"))
 
         header = env.get_template("kernel.h.jinja").render(
-            kernel=self, parts_to_pascal=parts_to_pascal
+            kernel=self, namespace=namespace, parts_to_pascal=parts_to_pascal
         )
         write_if_different(header, out_dir.joinpath(f"kernel_{self.name}.h"))
 

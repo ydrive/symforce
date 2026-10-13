@@ -15,7 +15,7 @@ namespace cg = cooperative_groups;
 // A smaller block size of 32 allows for larger nodetypes.
 constexpr int block_size = 32;
 
-namespace caspar {
+namespace {{caslib.namespace}} {
 {% for nodetype in caslib.exposed_types%}
 
 __global__ __launch_bounds__(block_size, 1)
@@ -136,4 +136,4 @@ cudaError_t {{nodetype.__name__}}CasparToStacked(const {{caslib.storage_t}}* cas
 }
 
 {% endfor %}
-}  // namespace caspar
+}  // namespace {{caslib.namespace}}

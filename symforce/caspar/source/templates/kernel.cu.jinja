@@ -13,7 +13,7 @@
 
 namespace cg = cooperative_groups;
 
-namespace caspar {
+namespace {{namespace}} {
 
 __global__ void
 __launch_bounds__({{kernel.block_size}}, 1)
@@ -95,4 +95,4 @@ void {{parts_to_pascal(kernel.name)}} (
   );
 }
 
-}  // namespace caspar
+}  // namespace {{namespace}}

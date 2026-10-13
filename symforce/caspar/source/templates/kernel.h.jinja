@@ -8,7 +8,7 @@
 
 #include "shared_indices.h"
 
-namespace caspar {
+namespace {{namespace}} {
 
 void {{parts_to_pascal(kernel.name)}} (
     {% for desc in kernel.accessors %}
@@ -19,4 +19,4 @@ void {{parts_to_pascal(kernel.name)}} (
     size_t problem_size
 );
 
-}  // namespace caspar
+}  // namespace {{namespace}}

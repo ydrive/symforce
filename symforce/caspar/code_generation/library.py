@@ -78,11 +78,25 @@ class CasparLibrary:
     The CasLib class is the main entry point for generating and compiling caspar libraries.
     """
 
-    def __init__(self, name: str = "caspar_lib", dtype: DType = DType.FLOAT):
+    def __init__(
+        self, name: str = "caspar_lib", dtype: DType = DType.FLOAT, namespace: str | None = None
+    ):
+        """
+        Args:
+            name: Name of the library; prefixes the CMake targets and names the python module.
+            dtype: Scalar type of the node storage, factor data and kernel arithmetic.
+            namespace: Namespace nested in ``caspar`` that holds the generated code, e.g. ``f32``
+                puts it in ``caspar::f32``. Libraries with distinct namespaces can be linked into
+                the same binary. The runtime stays in ``caspar`` and is found from the nested
+                namespace by unqualified lookup. Defaults to ``caspar`` itself.
+        """
+        if namespace is not None and not namespace.isidentifier():
+            raise ValueError(f"namespace must be a C++ identifier, got '{namespace}'")
         self.kernels: list[Kernel] = []
         self.factors: list[Factor] = []
         self.name = name
         self.storage_t = dtype
+        self.namespace = "caspar" if namespace is None else f"caspar::{namespace}"
         # Keep sorted for deterministic template output
         self.node_types: list[T.LieGroupElement] = []
         self.exposed_types: list[T.LieGroupElement] = []
@@ -247,7 +261,7 @@ class CasparLibrary:
     def generate_kernels(self, out_dir: Path) -> None:
         for kernel in sorted(self.kernels, key=lambda k: k.name != "imu_residual_res_jac_first"):
             logging.info(f"Generating kernel {kernel.name}")
-            kernel.generate(out_dir)
+            kernel.generate(out_dir, self.namespace)
 
     @staticmethod
     def generate_links(

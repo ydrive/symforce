@@ -77,11 +77,11 @@ RUNTIME_DIR = Path(caspar.__file__).parent / "source" / "runtime"
 CPP_SUFFIXES = {".cu", ".cc", ".h", ".cuh"}
 
 
-def _make_solver_library() -> CasparLibrary:
+def _make_solver_library(namespace: T.Optional[str] = None) -> CasparLibrary:
     """
     Rosenbrock converges slowly, so a solve is still progressing after a few iterations.
     """
-    caslib = CasparLibrary(dtype=DType.DOUBLE)
+    caslib = CasparLibrary(dtype=DType.DOUBLE, namespace=namespace)
 
     @caslib.add_factor
     def rosenbrock(
@@ -133,6 +133,40 @@ class SymforceCasparCodegenTest(TestCase):
             )
 
         self.compare_or_update_directory(generated_dir, SOLVER_TEST_DATA_DIR)
+
+    @symengine_only
+    def test_generate_nested_namespace(self) -> None:
+        """
+        The generated code goes in the nested namespace, the runtime stays in caspar.
+        """
+        output_dir = self.make_output_dir("sf_caspar_namespace_")
+        _make_solver_library(namespace="f64").generate(output_dir, python_bindings=True)
+
+        generated = [path for path in output_dir.glob("*") if path.suffix in CPP_SUFFIXES]
+        self.assertTrue(generated)
+        for path in generated:
+            content = path.read_text()
+            self.assertNotIn("namespace caspar {", content, path.name)
+            if path.name != "pybinding.cc":
+                self.assertIn("namespace caspar::f64 {", content, path.name)
+        runtime = [
+            path for path in (output_dir / "runtime").glob("*") if path.suffix in CPP_SUFFIXES
+        ]
+        self.assertTrue(runtime)
+        for path in runtime:
+            self.assertNotIn("caspar::f64", path.read_text(), path.name)
+
+        pybinding = (output_dir / "pybinding.cc").read_text()
+        self.assertIn("using namespace caspar::f64;", pybinding)
+        self.assertIn("caspar::f64::add_casmappings_pybindings(module);", pybinding)
+        self.assertIn("caspar::f64::add_solver_pybinding(module);", pybinding)
+        self.assertIn("caspar::add_solver_params_pybinding(module);", pybinding)
+
+    def test_namespace_must_be_identifier(self) -> None:
+        for namespace in ("", "caspar::f32", "f-32", "1f"):
+            with self.subTest(namespace=namespace):
+                with self.assertRaises(ValueError):
+                    CasparLibrary(namespace=namespace)
 
     @symengine_only
     def test_generate_runtime_subdirectory(self) -> None:
