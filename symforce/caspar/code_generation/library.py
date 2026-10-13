@@ -158,13 +158,17 @@ class CasparLibrary:
     def generate(
         self, out_dir: Path, use_symlinks: bool = False, python_bindings: bool = True
     ) -> None:
+        """
+        Write the library sources and its CMakeLists.txt to out_dir, and the runtime to
+        out_dir/runtime, where the CMakeLists.txt builds it as the caspar_runtime target.
+        """
         out_dir.mkdir(exist_ok=True, parents=True)
 
         for fac in self.factors:
             self.kernels.extend(fac.make_kernels())
 
         self.generate_castype_mappings(out_dir, python_bindings)
-        self.generate_links(out_dir, use_symlinks, python_bindings)
+        self.generate_links(out_dir / "runtime", use_symlinks, python_bindings)
         if solver := (Solver(self) if self.factors else None):
             self.kernels.extend(solver.make_kernels())
             solver.generate(out_dir, python_bindings)
@@ -249,6 +253,10 @@ class CasparLibrary:
     def generate_links(
         out_dir: Path, use_symlinks: bool = True, python_bindings: bool = True
     ) -> None:
+        """
+        Copy or link the runtime, with the CMakeLists.txt that builds it, into out_dir.
+        """
+        out_dir.mkdir(exist_ok=True, parents=True)
         for f in Path(caspar.__file__).parent.glob("source/runtime/*"):
             if f.is_dir():  # Skip directories like __pycache__
                 continue
