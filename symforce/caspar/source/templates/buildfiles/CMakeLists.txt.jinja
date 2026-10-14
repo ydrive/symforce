@@ -19,6 +19,13 @@ endif()
 
 find_package(CUDAToolkit REQUIRED)
 
+# The runtime does not depend on the generated code or its scalar type, so a project that
+# builds several generated libraries compiles it once: the first library added defines the
+# caspar_runtime target and the others link it.
+if(NOT TARGET caspar_runtime)
+  add_subdirectory(runtime)
+endif()
+
 {% if python_bindings %}
 option(CASPAR_BUILD_PYTHON_BINDINGS "Build Python bindings via pybind11" ON)
 
@@ -47,7 +54,7 @@ list(FILTER CUDA_HEADERS EXCLUDE REGEX "pybind.*")
 
 add_library({{caslib.name}}_core STATIC ${CUDA_SOURCES} ${CUDA_HEADERS})
 target_include_directories({{caslib.name}}_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries({{caslib.name}}_core PUBLIC CUDA::cudart)
+target_link_libraries({{caslib.name}}_core PUBLIC caspar_runtime CUDA::cudart)
 target_compile_options({{caslib.name}}_core PRIVATE
   $<$<COMPILE_LANGUAGE:CUDA>:--use_fast_math>
 )
@@ -57,7 +64,7 @@ set_target_properties({{caslib.name}}_core PROPERTIES
 
 {% if python_bindings %}
 if(CASPAR_BUILD_PYTHON_BINDINGS)
-  file(GLOB CPP_SOURCES "pybind*.cc")
+  file(GLOB CPP_SOURCES "pybind*.cc" "runtime/pybind*.cc")
 
   pybind11_add_module({{caslib.name}} ${CPP_SOURCES} ${CPP_HEADERS})
   target_link_libraries({{caslib.name}} PRIVATE {{caslib.name}}_core)

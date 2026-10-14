@@ -65,7 +65,7 @@ T* assign_and_increment(uint8_t* origin_ptr, size_t& offset, size_t num_elements
 
 }  // namespace
 
-namespace caspar {
+namespace {{solver.caslib.namespace}} {
 
 {{ solver.struct_name }}::{{ solver.struct_name }}(
     const SolverParams<double> &params,
@@ -934,4 +934,4 @@ size_t {{ solver.struct_name }}::get_nbytes() {
     return std::max(offset, at_least);
 }
 
-} // namespace caspar
+} // namespace {{solver.caslib.namespace}}

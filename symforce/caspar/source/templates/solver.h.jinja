@@ -13,7 +13,7 @@
 #include "shared_indices.h"
 #include "solver_params.h"
 
-namespace caspar {
+namespace {{solver.caslib.namespace}} {
 
 enum class ExitReason {
   MAX_ITERATIONS,
@@ -267,4 +267,4 @@ class {{ solver.struct_name }} {
   {% endfor %}
 };
 
-} // namespace caspar
+} // namespace {{solver.caslib.namespace}}

@@ -7,7 +7,7 @@
 #include "pybind_array_tools.h"
 #include "solver.h"
 
-namespace caspar {
+namespace {{solver.caslib.namespace}} {
 
 inline void add_solver_pybinding(pybind11::module_ module) {
   py::enum_<ExitReason>(module, "ExitReason")
@@ -242,4 +242,4 @@ inline void add_solver_pybinding(pybind11::module_ module) {
       ;
 }
 
-} // namespace caspar
+} // namespace {{solver.caslib.namespace}}

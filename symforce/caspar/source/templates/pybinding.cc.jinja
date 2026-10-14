@@ -22,6 +22,9 @@
 namespace {
 
 using namespace caspar;
+{% if caslib.namespace != "caspar" %}
+using namespace {{caslib.namespace}};
+{% endif %}
 
 {% for kernel in caslib.kernels %}
 {% if kernel.expose_to_python %}
@@ -63,9 +66,9 @@ PYBIND11_MODULE({{caslib.name}}, module) {
   {% endif %}
   {% endfor %}
 
-  caspar::add_casmappings_pybindings(module);
+  {{caslib.namespace}}::add_casmappings_pybindings(module);
   {% if solver is not none %}
-  caspar::add_solver_pybinding(module);
+  {{caslib.namespace}}::add_solver_pybinding(module);
   caspar::add_solver_params_pybinding(module);
   {% endif %}
 }

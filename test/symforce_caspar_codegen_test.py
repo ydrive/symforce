@@ -72,11 +72,16 @@ def _make_padding_lane_library() -> CasparLibrary:
     return caslib
 
 
-def _make_solver_library() -> CasparLibrary:
+RUNTIME_DIR = Path(caspar.__file__).parent / "source" / "runtime"
+
+CPP_SUFFIXES = {".cu", ".cc", ".h", ".cuh"}
+
+
+def _make_solver_library(namespace: T.Optional[str] = None) -> CasparLibrary:
     """
     Rosenbrock converges slowly, so a solve is still progressing after a few iterations.
     """
-    caslib = CasparLibrary(dtype=DType.DOUBLE)
+    caslib = CasparLibrary(dtype=DType.DOUBLE, namespace=namespace)
 
     @caslib.add_factor
     def rosenbrock(
@@ -117,21 +122,81 @@ class SymforceCasparCodegenTest(TestCase):
         output_dir = self.make_output_dir("sf_caspar_solver_")
         _make_solver_library().generate(output_dir, python_bindings=False)
 
-        # The runtime is compiled from its own directory; check in only what was generated.
-        runtime_dir = Path(caspar.__file__).parent / "source" / "runtime"
+        # The runtime is generated into its own subdirectory; check in only the library.
         generated_dir = output_dir / "generated"
         generated_dir.mkdir()
         for path in sorted(output_dir.glob("*")):
-            if (
-                path.suffix not in {".cu", ".cc", ".h", ".cuh"}
-                or (runtime_dir / path.name).exists()
-            ):
+            if path.suffix not in CPP_SUFFIXES:
                 continue
             (generated_dir / path.name).write_text(
                 format_cpp(path.read_text(), str(SOLVER_TEST_DATA_DIR / path.name))
             )
 
         self.compare_or_update_directory(generated_dir, SOLVER_TEST_DATA_DIR)
+
+    @symengine_only
+    def test_generate_nested_namespace(self) -> None:
+        """
+        The generated code goes in the nested namespace, the runtime stays in caspar.
+        """
+        output_dir = self.make_output_dir("sf_caspar_namespace_")
+        _make_solver_library(namespace="f64").generate(output_dir, python_bindings=True)
+
+        generated = [path for path in output_dir.glob("*") if path.suffix in CPP_SUFFIXES]
+        self.assertTrue(generated)
+        for path in generated:
+            content = path.read_text()
+            self.assertNotIn("namespace caspar {", content, path.name)
+            if path.name != "pybinding.cc":
+                self.assertIn("namespace caspar::f64 {", content, path.name)
+        runtime = [
+            path for path in (output_dir / "runtime").glob("*") if path.suffix in CPP_SUFFIXES
+        ]
+        self.assertTrue(runtime)
+        for path in runtime:
+            self.assertNotIn("caspar::f64", path.read_text(), path.name)
+
+        pybinding = (output_dir / "pybinding.cc").read_text()
+        self.assertIn("using namespace caspar::f64;", pybinding)
+        self.assertIn("caspar::f64::add_casmappings_pybindings(module);", pybinding)
+        self.assertIn("caspar::f64::add_solver_pybinding(module);", pybinding)
+        self.assertIn("caspar::add_solver_params_pybinding(module);", pybinding)
+
+    def test_namespace_must_be_identifier(self) -> None:
+        for namespace in ("", "caspar::f32", "f-32", "1f"):
+            with self.subTest(namespace=namespace):
+                with self.assertRaises(ValueError):
+                    CasparLibrary(namespace=namespace)
+
+    @symengine_only
+    def test_generate_runtime_subdirectory(self) -> None:
+        """
+        The runtime is written to its own subdirectory, which the library's CMakeLists.txt adds
+        as the caspar_runtime target unless the project already has one.
+        """
+        output_dir = self.make_output_dir("sf_caspar_runtime_")
+        _make_solver_library().generate(output_dir, python_bindings=False)
+
+        runtime_names = {path.name for path in RUNTIME_DIR.iterdir() if path.is_file()}
+        self.assertEqual(
+            {path.name for path in (output_dir / "runtime").iterdir()},
+            {name for name in runtime_names if "pybind" not in name},
+        )
+        library_names = {path.name for path in output_dir.iterdir()}
+        self.assertFalse((runtime_names - {"CMakeLists.txt"}) & library_names)
+
+        library_cmake = (output_dir / "CMakeLists.txt").read_text()
+        self.assertIn(
+            "if(NOT TARGET caspar_runtime)\n  add_subdirectory(runtime)\nendif()", library_cmake
+        )
+        self.assertIn(
+            "target_link_libraries(caspar_lib_core PUBLIC caspar_runtime CUDA::cudart)",
+            library_cmake,
+        )
+        self.assertIn(
+            "add_library(caspar_runtime STATIC",
+            (output_dir / "runtime" / "CMakeLists.txt").read_text(),
+        )
 
 
 if __name__ == "__main__":

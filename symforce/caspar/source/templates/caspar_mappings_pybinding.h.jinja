@@ -7,7 +7,7 @@
 #include "caspar_mappings.h"
 #include "pybind_array_tools.h"
 
-namespace caspar {
+namespace {{caslib.namespace}} {
 
 void add_casmappings_pybindings(pybind11::module_ module) {
   {% for nodetype in caslib.exposed_types %}
@@ -53,4 +53,4 @@ void add_casmappings_pybindings(pybind11::module_ module) {
   {% endfor %}
 }
 
-} // namespace caspar
+} // namespace {{caslib.namespace}}
