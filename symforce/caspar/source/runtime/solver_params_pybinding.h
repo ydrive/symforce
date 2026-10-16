@@ -25,6 +25,7 @@ void add_solver_params_pybinding(py::module_ module) {
       .def_readwrite("diag_exit_value", &SolverParamsT::diag_exit_value)
       .def_readwrite("diag_min", &SolverParamsT::diag_min)
       .def_readwrite("solver_rel_decrease_min", &SolverParamsT::solver_rel_decrease_min)
+      .def_readwrite("solver_function_tolerance", &SolverParamsT::solver_function_tolerance)
       .def_readwrite("score_exit_value", &SolverParamsT::score_exit_value)
       .def_readwrite("pcg_rel_decrease_min", &SolverParamsT::pcg_rel_decrease_min)
       .def_readwrite("pcg_rel_error_exit", &SolverParamsT::pcg_rel_error_exit)

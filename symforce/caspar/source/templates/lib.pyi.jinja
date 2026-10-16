@@ -25,6 +25,7 @@ class ExitReason:
     MAX_ITERATIONS: int
     CONVERGED_SCORE_THRESHOLD: int
     CONVERGED_DIAG_EXIT: int
+    CONVERGED_FUNCTION_TOLERANCE: int
 
 class IterationData:
     solver_iter: int
@@ -67,6 +68,7 @@ class SolverParams:
     diag_min: float
 
     solver_rel_decrease_min: float
+    solver_function_tolerance: float
     score_exit_value: float
 
     pcg_rel_decrease_min: float
