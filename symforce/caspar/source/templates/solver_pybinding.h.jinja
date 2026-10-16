@@ -14,6 +14,7 @@ inline void add_solver_pybinding(pybind11::module_ module) {
       .value("MAX_ITERATIONS", ExitReason::MAX_ITERATIONS)
       .value("CONVERGED_SCORE_THRESHOLD", ExitReason::CONVERGED_SCORE_THRESHOLD)
       .value("CONVERGED_DIAG_EXIT", ExitReason::CONVERGED_DIAG_EXIT)
+      .value("CONVERGED_FUNCTION_TOLERANCE", ExitReason::CONVERGED_FUNCTION_TOLERANCE)
       .export_values();
 
   py::class_<IterationData>(module, "IterationData")

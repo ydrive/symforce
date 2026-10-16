@@ -18,7 +18,8 @@ namespace {{solver.caslib.namespace}} {
 enum class ExitReason {
   MAX_ITERATIONS,
   CONVERGED_SCORE_THRESHOLD,
-  CONVERGED_DIAG_EXIT
+  CONVERGED_DIAG_EXIT,
+  CONVERGED_FUNCTION_TOLERANCE
 };
 
 struct IterationData {

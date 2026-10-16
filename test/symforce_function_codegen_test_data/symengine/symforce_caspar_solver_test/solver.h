@@ -10,7 +10,12 @@
 
 namespace caspar {
 
-enum class ExitReason { MAX_ITERATIONS, CONVERGED_SCORE_THRESHOLD, CONVERGED_DIAG_EXIT };
+enum class ExitReason {
+  MAX_ITERATIONS,
+  CONVERGED_SCORE_THRESHOLD,
+  CONVERGED_DIAG_EXIT,
+  CONVERGED_FUNCTION_TOLERANCE
+};
 
 struct IterationData {
   int solver_iter;
