@@ -229,6 +229,14 @@ SolveResult {{ solver.struct_name }}::solve(bool print_progress, bool verbose_lo
       have_pcg_proposal = true;
     }
 
+    // Ceres' function tolerance: stop once the candidate changes the score by at
+    // most solver_function_tolerance of the current score, without applying it.
+    if (have_pcg_proposal && params_.solver_function_tolerance > 0.0f &&
+        std::abs(score_best - score_best_pcg) <= params_.solver_function_tolerance * score_best) {
+      result.exit_reason = ExitReason::CONVERGED_FUNCTION_TOLERANCE;
+      break;
+    }
+
     const {{solver.linear_t}} diag_current = diag;
     bool step_accepted = false;
     if (have_pcg_proposal && score_best_pcg < score_best * params_.solver_rel_decrease_min) {

@@ -21,6 +21,14 @@ struct SolverParams {
   T pcg_rel_score_exit = -1.0f;    // disabled if == -1.0f
   T pcg_rel_decrease_min = -1.0f;  // disabled if == -1.0f
   T solver_rel_decrease_min = 1.0f;
+  // Stops once a candidate step changes the score by at most this fraction of the
+  // current score, like Ceres' function_tolerance. Disabled if <= 0.
+  // The score is accumulated in the solver's storage type with GPU atomics, so its
+  // relative error grows with the number of residuals and varies between runs. A
+  // tolerance at or below that noise is not meaningful: in a float solver, values near
+  // or below float epsilon (~1.2e-7) fire only when the score stops changing in float,
+  // and somewhat larger values can be swamped by summation noise on large problems.
+  T solver_function_tolerance = 0.0f;
   // Records per-PCG-iteration data in IterationData when > 0 and verbose_logging is on.
   int trace_pcg = 0;
 
@@ -41,6 +49,7 @@ struct SolverParams {
         pcg_rel_score_exit(static_cast<T>(other.pcg_rel_score_exit)),
         pcg_rel_decrease_min(static_cast<T>(other.pcg_rel_decrease_min)),
         solver_rel_decrease_min(static_cast<T>(other.solver_rel_decrease_min)),
+        solver_function_tolerance(static_cast<T>(other.solver_function_tolerance)),
         trace_pcg(other.trace_pcg) {}
 };
 }  // namespace caspar

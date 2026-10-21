@@ -123,6 +123,32 @@ TEST_CASE("A solve that accepts non-monotonically still returns what it reports"
   CHECK(ScoreOf(solve.x) == Catch::Approx(solve.result.final_score).epsilon(1e-9));
 }
 
+TEST_CASE("The function tolerance stops the solve without applying the last step",
+          "[caspar_solver_cuda_test]") {
+  REQUIRE(HaveDevice());
+
+  // The unbounded solve reaches the zero-score optimum; one of its early steps
+  // changes the score by only about 3%.
+  constexpr double kTolerance = 0.05;
+  const Solve unbounded = Run(ParamsWithIterations(50));
+  caspar::SolverParams<double> params = ParamsWithIterations(50);
+  params.solver_function_tolerance = kTolerance;
+  const Solve solve = Run(params);
+
+  CHECK(unbounded.result.exit_reason != caspar::ExitReason::CONVERGED_FUNCTION_TOLERANCE);
+  CHECK(solve.result.exit_reason == caspar::ExitReason::CONVERGED_FUNCTION_TOLERANCE);
+  CHECK(solve.result.iteration_count < unbounded.result.iteration_count);
+  CHECK(solve.result.final_score < solve.result.initial_score);
+  CHECK(ScoreOf(solve.x) == Catch::Approx(solve.result.final_score).epsilon(1e-9));
+  // Every recorded step changed the score by more than the tolerance.
+  double previous_best = solve.result.initial_score;
+  for (const caspar::IterationData& iteration : solve.result.iterations) {
+    CAPTURE(iteration.solver_iter, iteration.score_current, previous_best);
+    CHECK(std::abs(previous_best - iteration.score_current) > kTolerance * previous_best);
+    previous_best = iteration.score_best;
+  }
+}
+
 TEST_CASE("A solver with no inner iterations is rejected", "[caspar_solver_cuda_test]") {
   REQUIRE(HaveDevice());
 
