@@ -71,6 +71,13 @@ class CMakeBuild(build_ext):
                 + ", ".join(e.name for e in self.extensions)
             ) from ex
 
+        cfg = "Debug" if self.debug else "Release"
+
+        # Build in a fixed tree under build/ instead of setuptools' build_temp.
+        # Prevents repeated build every time, reducing setup on machines with already built binaries.
+        self.build_temp = str(
+            SOURCE_DIR / "build" / f"cmake-{sys.implementation.cache_tag}-{cfg.lower()}"
+        )
         build_temp_path = Path(self.build_temp)
         build_directory = build_temp_path.resolve()
 
@@ -96,7 +103,6 @@ class CMakeBuild(build_ext):
             elif sys.platform == "darwin":
                 cmake_args.append("-DCMAKE_BUILD_RPATH=@loader_path")
 
-        cfg = "Debug" if self.debug else "Release"
         build_args = ["--config", cfg]
 
         # NOTE(hayk): Don't build tests or examples through pip.
