@@ -1,18 +1,30 @@
 name: Build wheels
 
+# Manual only. Run on a branch to build and test wheels without publishing. Run on a tag named
+# <major>.<minor>.<patch> (e.g. 0.12.1) to also publish them as a GitHub Release; the wheels
+# are versioned <tag>+ydrive.
 on:
-  push:
-    branches:
-     - 'main'
-    tags:
-     - 'v*.*.*'
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 jobs:
+  check-ref:
+    runs-on: ubuntu-latest
+    outputs:
+      # Empty on branch runs, where setuptools_scm derives a dev version from git
+      release-version: ${{ steps.version.outputs.release-version }}
+    steps:
+    - name: Check tag name
+      id: version
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        if [[ ! "${GITHUB_REF_NAME}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Tag '${GITHUB_REF_NAME}' does not match <major>.<minor>.<patch>" >&2
+          exit 1
+        fi
+        echo "release-version=${GITHUB_REF_NAME}+ydrive" | tee -a "$GITHUB_OUTPUT"
+
   build-extra:
-    if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    needs: check-ref
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
@@ -21,6 +33,10 @@ jobs:
         # Should include history since the last tag for setuptools_scm to work
         fetch-depth: 300
         fetch-tags: true
+
+    - name: Set release version
+      if: needs.check-ref.outputs.release-version != ''
+      run: echo "SETUPTOOLS_SCM_PRETEND_VERSION=${{ needs.check-ref.outputs.release-version }}" | tee -a $GITHUB_ENV
 
     - name: Build Wheels
       run: |
@@ -34,66 +50,13 @@ jobs:
         name: symforce-wheels-extra
         path: dist/*
 
-  build-macos:
-    if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
-    runs-on: ${{ matrix.os.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - deploy_target: 14.0
-            runner: macos-14
-            arch: arm64
-        python-version: [cp310, cp311, cp312, cp313, cp314]
-
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v6
-      with:
-        # Should include history since the last tag for setuptools_scm to work
-        fetch-depth: 300
-        fetch-tags: true
-
-    - uses: actions/setup-python@v6
-      with:
-        python-version: '3.12'
-    - run: pip install setuptools_scm
-    - run: echo "SYMFORCE_VERSION=$(python -m setuptools_scm)" | tee $GITHUB_ENV
-
-    - name: Build wheels
-      uses: pypa/cibuildwheel@v3.4.1
-      env:
-        CIBW_BUILD: ${{ matrix.python-version }}-*
-        CIBW_ARCHS_MACOS: ${{ matrix.os.arch }}
-        # For arm64; for x86, it's at /usr/local but cmake finds that ok already
-        GMP_ROOT: /opt/homebrew
-        CIBW_ENVIRONMENT: SYMFORCE_REWRITE_LOCAL_DEPENDENCIES=$SYMFORCE_VERSION MACOSX_DEPLOYMENT_TARGET=${{ matrix.os.deploy_target }} SYMFORCE_PYTHON_OVERRIDE=python
-        CIBW_BEFORE_TEST: >
-          pip install build setuptools_scm &&
-          python -m build --wheel {project}/third_party/skymarshal --outdir /tmp/wheel-test-dist &&
-          python -m build --wheel {project}/gen/python --outdir /tmp/wheel-test-dist &&
-          pip install /tmp/wheel-test-dist/*
-        CIBW_TEST_COMMAND: python {project}/.github/scripts/run_wheel_tests.py {project}
-        CIBW_TEST_EXTRAS: dev
-
-    - name: Upload wheels
-      uses: actions/upload-artifact@v7
-      with:
-        name: symforce-wheels-${{ matrix.os.arch }}-${{ matrix.python-version }}
-        path: wheelhouse/*.whl
-
   build-linux:
-    if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
-    runs-on: ${{ matrix.os.runner }}
+    needs: check-ref
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - runner: ubuntu-latest
-            arch: x86_64
-          - runner: ubuntu-24.04-arm
-            arch: aarch64
-        python-version: [cp310, cp311, cp312, cp313, cp314]
+        python-version: [cp312, cp313, cp314]
 
     steps:
     - name: Checkout
@@ -102,18 +65,24 @@ jobs:
         # Should include history since the last tag for setuptools_scm to work
         fetch-depth: 300
         fetch-tags: true
+
+    - name: Set release version
+      if: needs.check-ref.outputs.release-version != ''
+      run: echo "SETUPTOOLS_SCM_PRETEND_VERSION=${{ needs.check-ref.outputs.release-version }}" | tee -a $GITHUB_ENV
 
     - run: python3 -m pip install setuptools_scm
-    - run: echo "SYMFORCE_VERSION=$(python3 -m setuptools_scm)" | tee $GITHUB_ENV
+    - run: echo "SYMFORCE_VERSION=$(python3 -m setuptools_scm)" | tee -a $GITHUB_ENV
 
     - name: Build wheels
       uses: pypa/cibuildwheel@v3.4.1
       env:
-        CIBW_BUILD: ${{ matrix.python-version }}-manylinux_${{ matrix.os.arch }}
-        CIBW_ARCHS_LINUX: ${{ matrix.os.arch }}
+        CIBW_BUILD: ${{ matrix.python-version }}-manylinux_x86_64
+        CIBW_ARCHS_LINUX: x86_64
         CIBW_BEFORE_BUILD: yum install -y gmp-devel git
         CIBW_ENVIRONMENT: SYMFORCE_REWRITE_LOCAL_DEPENDENCIES=$SYMFORCE_VERSION SYMFORCE_PYTHON_OVERRIDE=python
-        CIBW_ENVIRONMENT_PASS_LINUX: SYMFORCE_VERSION
+        # SETUPTOOLS_SCM_PRETEND_VERSION gives every package built in the container, including
+        # the test builds below, the release version
+        CIBW_ENVIRONMENT_PASS_LINUX: SYMFORCE_VERSION SETUPTOOLS_SCM_PRETEND_VERSION
         CIBW_BEFORE_TEST: >
           pip install build setuptools_scm &&
           python -m build --wheel {project}/third_party/skymarshal --outdir /tmp/wheel-test-dist &&
@@ -126,15 +95,13 @@ jobs:
     - name: Upload Wheels
       uses: actions/upload-artifact@v7
       with:
-        name: symforce-wheels-linux-${{ matrix.os.arch }}-${{ matrix.python-version }}
+        name: symforce-wheels-linux-x86_64-${{ matrix.python-version }}
         path: wheelhouse/*.whl
 
   merge-wheel-artifacts:
-    if: contains(fromJSON('["push", "workflow_dispatch"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     needs:
       - build-extra
-      - build-macos
       - build-linux
     steps:
       - uses: actions/upload-artifact/merge@v7
@@ -142,29 +109,50 @@ jobs:
           name: symforce-wheels
           delete-merged: true
 
-  publish-to-pypi:
-    name: Publish Python 🐍 distribution 📦 to PyPI
-    strategy:
-      matrix:
-        package: [symforce, symforce_sym, skymarshal]
-    if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
+  publish-release:
+    if: needs.check-ref.outputs.release-version != ''
     needs:
+    - check-ref
     - merge-wheel-artifacts
     runs-on: ubuntu-latest
 
-    environment:
-      name: pypi
-      url: https://pypi.org/p/${{ matrix.package }}
-
     permissions:
-      id-token: write
+      contents: write
 
     steps:
     - name: Download all the dists
       uses: actions/download-artifact@v8
       with:
         name: symforce-wheels
-        path: wheels-download/
-    - run: mkdir dist && cp wheels-download/${{ matrix.package }}-*.whl dist/
-    - name: Publish distribution 📦 to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
+        path: dist/
+
+    - name: Check wheel versions
+      run: |
+        python3 - "${{ needs.check-ref.outputs.release-version }}" dist/*.whl <<'EOF'
+        import sys
+        import zipfile
+
+        expected = sys.argv[1]
+        mismatched = []
+        for wheel_path in sys.argv[2:]:
+            with zipfile.ZipFile(wheel_path) as wheel:
+                metadata_name = next(n for n in wheel.namelist() if n.endswith(".dist-info/METADATA"))
+                metadata = wheel.read(metadata_name).decode()
+            version = next(line.split(":", 1)[1].strip() for line in metadata.splitlines() if line.startswith("Version:"))
+            print(f"{wheel_path}: {version}")
+            if version != expected:
+                mismatched.append(wheel_path)
+        if mismatched:
+            sys.exit(f"Expected version {expected}, mismatched: {mismatched}")
+        EOF
+
+    # Fails if a release for this tag already exists, so a version is never published twice
+    - name: Create GitHub Release
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+      run: |
+        gh release create "${GITHUB_REF_NAME}" dist/*.whl \
+          --verify-tag \
+          --title "${GITHUB_REF_NAME}" \
+          --notes "SymForce wheels ${{ needs.check-ref.outputs.release-version }}, built from ${GITHUB_SHA}."
