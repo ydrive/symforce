@@ -24,7 +24,7 @@ bleach==6.4.0
     # via nbconvert
 breathe==4.36.0
     # via symforce (pyproject.toml)
-certifi==2026.1.4
+certifi==2026.10.23
     # via requests
 charset-normalizer==3.4.4
     # via requests
@@ -140,7 +140,7 @@ narwhals==2.16.0
     # via plotly
 nbclient==0.10.4
     # via nbconvert
-nbconvert==7.17.1
+nbconvert==7.17.2
     # via nbsphinx
 nbformat==5.10.4
     # via
@@ -302,7 +302,7 @@ tomli==2.4.0
     #   mypy
     #   setuptools-scm
     #   sphinx
-tornado==6.5.8
+tornado==6.5.9
     # via
     #   ipykernel
     #   jupyter-client
@@ -338,11 +338,11 @@ typing-extensions==4.15.0
     #   sortedcontainers-stubs
 tzdata==2025.3
     # via pandas
-urllib3==2.7.0
+urllib3==2.8.0
     # via
     #   requests
     #   types-requests
-uv==0.11.15
+uv==0.13.6
     # via symforce (pyproject.toml)
 wcwidth==0.6.0
     # via prompt-toolkit

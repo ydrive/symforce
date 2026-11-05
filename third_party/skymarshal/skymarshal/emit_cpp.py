@@ -193,10 +193,9 @@ class CppInclude:
     def directive(self):
         name = self.absolute_path
         if self.std is not None:
-            name = f"<{name}>"
-        else:
-            name = f'"{name}"'
-        return f"#include {name}\n"
+            return f"#include <{name}>\n"
+        # A struct's member types are part of its interface, so it exports their headers.
+        return f'#include "{name}"  // IWYU pragma: export\n'
 
     @property
     def package(self):
@@ -333,6 +332,9 @@ class CppStruct(StructBuilder, CppBase):
 
     def constructor_args(self):
         return ",\n".join(declare_member(member, "_arg", const_ref=True) for member in self.members)
+
+    def constructor_specifier(self):
+        return "constexpr" if self.struct.literal_type else "inline"
 
     def initializers(self):
         return ",\n".join("{0}({0}_arg)".format(member.name) for member in self.members)
