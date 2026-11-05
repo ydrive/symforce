@@ -8,11 +8,11 @@
 {% endif %}
  **/
 
-#include <lcm/lcm_coretypes.h>
-#include <lcm/lcm_cpptypes.hpp>
-
 #ifndef __{{lcmtype.underscored}}_hpp__
 #define __{{lcmtype.underscored}}_hpp__
+
+#include <lcm/lcm_coretypes.h>
+#include <lcm/lcm_cpptypes.hpp>
 
 {% if not lcmtype.cpp_no_print_helpers and not lcmtype.args.cpp_no_print_helpers %}
 {% if not lcmtype.cpp_display_everywhere %}
@@ -54,7 +54,7 @@ class {{lcmtype.name}}
         /**
          * Member constructor
          */
-        inline {{lcmtype.name}}(
+        {{lcmtype.constructor_specifier()}} {{lcmtype.name}}(
             {{lcmtype.constructor_args()|indent(12)}}
         );
 {% endif %}
@@ -161,6 +161,7 @@ class {{lcmtype.name}}
         static lcm::StructType schema()
         {
             std::vector<lcm::SchemaType> fields;
+            fields.reserve({{lcmtype.num_members}});
 
         {% for member in lcmtype.members %}
             fields.push_back(lcm::get_schema<decltype({{lcmtype.name}}::{{member.name}})>());
@@ -256,7 +257,7 @@ class {{lcmtype.name}}
 };
 {% if lcmtype.members and not lcmtype.args.cpp_no_operators %}
 
-{{lcmtype.name}}::{{lcmtype.name}}(
+{% if lcmtype.constructor_specifier() == "constexpr" %}constexpr {% endif %}{{lcmtype.name}}::{{lcmtype.name}}(
     {{lcmtype.constructor_args()|indent(4)}}
 ) : {{lcmtype.initializers()|indent(4)}} {}
 {% endif %}
