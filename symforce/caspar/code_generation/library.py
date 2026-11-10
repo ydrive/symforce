@@ -239,7 +239,7 @@ class CasparLibrary:
             # This import is useful for type inference in IDEs, or in local projects where a
             # generated caspar library is present here.  It won't always be present, and
             # won't be present in CI, so we ignore this if it's missing.
-            from ..tmp import lib  # type: ignore[import-not-found,unused-ignore]
+            from ..tmp import lib  # type: ignore[import-not-found,import-untyped,unused-ignore]
         else:
             import sysconfig as s
 
