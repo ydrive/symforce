@@ -32,11 +32,11 @@ struct SolverParams {
   // Records per-PCG-iteration data in IterationData when > 0 and verbose_logging is on.
   int trace_pcg = 0;
 
-  // Templated conversion constructor to enable automatic type conversion
   SolverParams() = default;
 
+  // Implicit so set_params can assign a SolverParams<double> to the SolverParams<linear_t> member.
   template <typename U>
-  SolverParams(const SolverParams<U>& other)
+  SolverParams(const SolverParams<U>& other)  // NOLINT(google-explicit-constructor)
       : diag_init(static_cast<T>(other.diag_init)),
         diag_scaling_up(static_cast<T>(other.diag_scaling_up)),
         diag_scaling_down(static_cast<T>(other.diag_scaling_down)),
